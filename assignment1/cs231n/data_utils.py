@@ -11,14 +11,14 @@ def load_pickle(f):
     if version[0] == '2':
         return  pickle.load(f)
     elif version[0] == '3':
-        return  pickle.load(f, encoding='latin1')
+        return  pickle.load(f, encoding='latin1')   #UnicodeDecodeError: 'ascii' codec can't decode byte 0x8b in position 6
     raise ValueError("invalid python version: {}".format(version))
 
 def load_CIFAR_batch(filename):
   """ load single batch of cifar """
   with open(filename, 'rb') as f:
-    datadict = load_pickle(f)
-    X = datadict['data']
+    datadict = load_pickle(f)    ##picle模块读取二进制文件
+    X = datadict['data'] 
     Y = datadict['labels']
     X = X.reshape(10000, 3, 32, 32).transpose(0,2,3,1).astype("float")
     Y = np.array(Y)
