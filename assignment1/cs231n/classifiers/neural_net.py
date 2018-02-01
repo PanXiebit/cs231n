@@ -51,7 +51,7 @@ class TwoLayerNet(object):
     - y: Vector of training labels. y[i] is the label for X[i], and each y[i] is
       an integer in the range 0 <= y[i] < C. This parameter is optional; if it
       is not passed then we only return scores, and if it is passed then we
-      instead return the loss and gradients.
+      instead return the loss and gradients. 这里说y可能不存在对吧。。
     - reg: Regularization strength.
 
     Returns:
@@ -76,14 +76,17 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    pass
+    scores_1 = X.dot(W1) + b1.reshape(1,-1) #(N,H)+(1,H)=(N,H)
+    input_2 = np.relu(score_1)
+    scores = input_2.dot(W2) + b2.reshape(1,-1)  #(N,C)
+    
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
     
     # If the targets are not given then jump out, we're done
     if y is None:
-      return scores
+      return scores   ##如果没有标签就只返回score，不计算loss，gradient了
 
     # Compute the loss
     loss = None
@@ -93,7 +96,13 @@ class TwoLayerNet(object):
     # in the variable loss, which should be a scalar. Use the Softmax           #
     # classifier loss.                                                          #
     #############################################################################
-    pass
+    num_train = X.shape[0]
+    exp_scores = exp(scores)   #(N,C)
+    p = exp_scores/np.sum(exp.scores,axis=1,keepdims=True) #(N,C)
+    loss = np.sum(-log(p[range(num_train),y]))  #(N,C)->(N,1)->(1,)
+    loss /= num_train
+    loss += (np.sum(W1*W1)+np.sum(W2*W2))
+    #pass
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
