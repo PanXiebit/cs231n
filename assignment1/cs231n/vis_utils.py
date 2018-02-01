@@ -12,10 +12,10 @@ def visualize_grid(Xs, ubound=255.0, padding=1):
   - ubound: Output grid will have values scaled to the range [0, ubound]
   - padding: The number of blank pixels between elements of the grid
   """
-  (N, H, W, C) = Xs.shape
-  grid_size = int(ceil(sqrt(N)))
-  grid_height = H * grid_size + padding * (grid_size - 1)
-  grid_width = W * grid_size + padding * (grid_size - 1)
+  (N, H, W, C) = Xs.shape                #以W1 [50,32,32,3]为例，可以看成50张图片
+  grid_size = int(ceil(sqrt(N)))         #向上取整，8  8×8的网格
+  grid_height = H * grid_size + padding * (grid_size - 1)  #32×8+7   7是每张图中间间隔1
+  grid_width = W * grid_size + padding * (grid_size - 1)   
   grid = np.zeros((grid_height, grid_width, C))
   next_idx = 0
   y0, y1 = 0, H
@@ -25,7 +25,7 @@ def visualize_grid(Xs, ubound=255.0, padding=1):
       if next_idx < N:
         img = Xs[next_idx]
         low, high = np.min(img), np.max(img)
-        grid[y0:y1, x0:x1] = ubound * (img - low) / (high - low)
+        grid[y0:y1, x0:x1] = ubound * (img - low) / (high - low)  #转化到[0,255]之间
         # grid[y0:y1, x0:x1] = Xs[next_idx]
         next_idx += 1
       x0 += W + padding
