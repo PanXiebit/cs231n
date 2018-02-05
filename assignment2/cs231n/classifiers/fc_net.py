@@ -148,35 +148,35 @@ class FullyConnectedNet(object):
     self.params dictionary and will be learned using the Solver class.
     """
 
-    def __init__(self, hidden_dims, input_dim=3*32*32, num_classes=10,
+    def __init__(self, hidden_dims, input_dim=3*32*32, num_classes=10, ##需要修改的参数hidden_dims,dropout, use_batchnorm, reg
                  dropout=0, use_batchnorm=False, reg=0.0,
                  weight_scale=1e-2, dtype=np.float32, seed=None):
         """
         Initialize a new FullyConnectedNet.
 
         Inputs:
-        - hidden_dims: A list of integers giving the size of each hidden layer.
+        - hidden_dims: A list of integers giving the size of each hidden layer. ##一个list储存每个隐藏层的神经元数量
         - input_dim: An integer giving the size of the input.
         - num_classes: An integer giving the number of classes to classify.
         - dropout: Scalar between 0 and 1 giving dropout strength. If dropout=0 then
-          the network should not use dropout at all.
-        - use_batchnorm: Whether or not the network should use batch normalization.
-        - reg: Scalar giving L2 regularization strength.
+          the network should not use dropout at all.           ## integer 
+        - use_batchnorm: Whether or not the network should use batch normalization.    ## boolean 
+        - reg: Scalar giving L2 regularization strength.        ## L2正则化
         - weight_scale: Scalar giving the standard deviation for random
-          initialization of the weights.
+          initialization of the weights.                       ## 权重初始化
         - dtype: A numpy datatype object; all computations will be performed using
           this datatype. float32 is faster but less accurate, so you should use
-          float64 for numeric gradient checking.
+          float64 for numeric gradient checking.          ## 计算都使用 float64
         - seed: If not None, then pass this random seed to the dropout layers. This
           will make the dropout layers deteriminstic so we can gradient check the
           model.
         """
         self.use_batchnorm = use_batchnorm
-        self.use_dropout = dropout > 0
+        self.use_dropout = dropout > 0   ## boolean 判断是否使用dropout
         self.reg = reg
         self.num_layers = 1 + len(hidden_dims)
         self.dtype = dtype
-        self.params = {}
+        self.params = {} 
 
         ############################################################################
         # TODO: Initialize the parameters of the network, storing all values in    #
@@ -190,7 +190,15 @@ class FullyConnectedNet(object):
         # beta2, etc. Scale parameters should be initialized to one and shift      #
         # parameters should be initialized to zero.                                #
         ############################################################################
-        pass
+        layers_dims = [input_dim] + hidden_dims + [num_classes]
+        
+        for i in range(self.num_layers):
+            self.params["W"+'i+1'] = weight_scale * np.random.randn(layer_dims[i],layer_dims[i+1])
+            self.params["b"+'i+1'] = np.zeros(layer_dims[i+1])
+            if self.use_batchnorm and i < num_layers-1 :  ## 最后一层是得到score,没有激活函数,也不需要BN
+                slef.params["gamma"+str(i+1)] = np.ones(1,layer_dims[i+1])  ##???干嘛用的??
+                self.params["beta"+str(i+1)] = np.zeros(1,layer_dims[i+1])
+            
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -248,7 +256,16 @@ class FullyConnectedNet(object):
         # self.bn_params[1] to the forward pass for the second batch normalization #
         # layer, etc.                                                              #
         ############################################################################
-        pass
+        out, cache = {}, {}
+        out[0] = X.reshape(X.shape[0],-1)
+        for i in range(len(self.hidden_dims)):
+            w,b = self.params['W'+ str(i)], self.params['b'+ str(i)]
+            if self.use_batchnorm:
+                pass
+            else:
+                out[i+1],cache[i] = affine_relu_forward(out[i],w,b)
+        w, b = self.params['W'+str(self.num_layers)], self.params['W'+str(self.num_layers)]
+        scores,cache[self.hidden_dims] = affine_forward(out[self.hidden_dims],w,b)        
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

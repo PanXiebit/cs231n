@@ -120,12 +120,12 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     computed from minibatch statistics and used to normalize the incoming data.
     During training we also keep an exponentially decaying running mean of the
     mean and variance of each feature, and these averages are used to normalize
-    data at test-time.
+    data at test-time.                              ### 在测试集进行计算时,也需要用训练集的平均值和方差
 
     At each timestep we update the running averages for mean and variance using
     an exponential decay based on the momentum parameter:
 
-    running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+    running_mean = momentum * running_mean + (1 - momentum) * sample_mean  ## batch的均值和方差也用移动平均值,避免随机性吧
     running_var = momentum * running_var + (1 - momentum) * sample_var
 
     Note that the batch normalization paper suggests a different test-time
@@ -133,18 +133,18 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     large number of training images rather than using a running average. For
     this implementation we have chosen to use running averages instead since
     they do not require an additional estimation step; the torch7
-    implementation of batch normalization also uses running averages.
+    implementation of batch normalization also uses running averages.   ##有用大量样本平均值的,也有用移动平均的.
 
     Input:
     - x: Data of shape (N, D)
-    - gamma: Scale parameter of shape (D,)
+    - gamma: Scale parameter of shape (D,)   
     - beta: Shift paremeter of shape (D,)
     - bn_param: Dictionary with the following keys:
-      - mode: 'train' or 'test'; required
-      - eps: Constant for numeric stability
-      - momentum: Constant for running mean / variance.
+      - mode: 'train' or 'test'; required     ## 包含训练和测试,两种是不同的情况哦~
+      - eps: Constant for numeric stability   ## 保证数值稳定性,分母不为0
+      - momentum: Constant for running mean / variance.   ## 均值和方差求移动平均时的\beta
       - running_mean: Array of shape (D,) giving running mean of features
-      - running_var Array of shape (D,) giving running variance of features
+      - running_var Array of shape (D,) giving running variance of features   ## 方差
 
     Returns a tuple of:
     - out: of shape (N, D)
@@ -175,7 +175,13 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # variance, storing your result in the running_mean and running_var   #
         # variables.                                                          #
         #######################################################################
-        pass
+        sample_mean = np.mean(x, axis=0)
+        sample_var = np.mean((x - sample_mean), axis=0)
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
+        sample_norm = (x - running_mean)/(np.sqrt(running_var) + eps)
+        out = gamma * sample_norm + beta
+        cache = (running_mean, running_var, sample_norm, eps, gamma, beta)
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -186,7 +192,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        out = gamma * (x - running_mean) / np.sqrt(running_var + eps) + beta 
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -194,8 +200,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
 
     # Store the updated running means back into bn_param
-    bn_param['running_mean'] = running_mean
-    bn_param['running_var'] = running_var
+    bn_param['running_mean'] = running_mean    ## {affine - [batch norm] - relu - [dropout]} x (L - 1) - affine - softmax
+    bn_param['running_var'] = running_var     ##怎么知道哪一层对应的均值是啥?
 
     return out, cache
 
@@ -222,7 +228,12 @@ def batchnorm_backward(dout, cache):
     # TODO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     ###########################################################################
-    pass
+    (running_mean, running_var, sample_norm eps, gamma, beta) = cache
+    N = dout.shape[0]
+    dbeta = np.sum(dout, axis=0, keepdims=True) / N
+    dgamma = dout.dot(sample_norm.T)
+    dx = dout * gamma * (1 - 1/N) / np.sqrt(running_var)
+    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

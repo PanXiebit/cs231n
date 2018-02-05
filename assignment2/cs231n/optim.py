@@ -50,23 +50,28 @@ def sgd_momentum(w, dw, config=None):
 
     config format:
     - learning_rate: Scalar learning rate.
-    - momentum: Scalar between 0 and 1 giving the momentum value.
+    - momentum: Scalar between 0 and 1 giving the momentum value.   ## 指数加权平均系数
       Setting momentum = 0 reduces to sgd.
     - velocity: A numpy array of the same shape as w and dw used to store a
-      moving average of the gradients.
+      moving average of the gradients.             ## 经过加权平均后的权重,和W的shape是一样的
     """
     if config is None: config = {}
     config.setdefault('learning_rate', 1e-2)
     config.setdefault('momentum', 0.9)
-    v = config.get('velocity', np.zeros_like(w))
+    v = config.get('velocity', np.zeros_like(w)) #初始化为0
 
     next_w = None
     ###########################################################################
     # TODO: Implement the momentum update formula. Store the updated value in #
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
-    pass
-    ###########################################################################
+    ## Nesterov Accelerated gradient
+    v = config['momentum'] * v - config['learning']*dw
+    next_w =  w + v
+    ## Ng 讲解的似乎不太一样
+    # v = config['momentum'] * v -(1 - config['momentum'])*dw
+    # next_w = w - config['learning_rate'] * v
+    ##########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
     config['velocity'] = v
@@ -88,8 +93,8 @@ def rmsprop(x, dx, config=None):
     - cache: Moving average of second moments of gradients.
     """
     if config is None: config = {}
-    config.setdefault('learning_rate', 1e-2)
-    config.setdefault('decay_rate', 0.99)
+    config.setdefault('learning_rate', 1e-2)    ## 学习率
+    config.setdefault('decay_rate', 0.99)       ## 指数加权平均衰减率
     config.setdefault('epsilon', 1e-8)
     config.setdefault('cache', np.zeros_like(x))
 
@@ -99,7 +104,8 @@ def rmsprop(x, dx, config=None):
     # in the next_x variable. Don't forget to update cache value stored in    #
     # config['cache'].                                                        #
     ###########################################################################
-    pass
+    config['cache'] = config['decay_rate']*config['cache']+(1-config['decay_rate'])*(dx**2)
+    next_x = x - config['learning_rate']*dx/(np.sqrt(config['cache'])+config['epsilon'])
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -114,11 +120,11 @@ def adam(x, dx, config=None):
 
     config format:
     - learning_rate: Scalar learning rate.
-    - beta1: Decay rate for moving average of first moment of gradient.
-    - beta2: Decay rate for moving average of second moment of gradient.
+    - beta1: Decay rate for moving average of first moment of gradient.   ## dw的指数加权平均衰减率
+    - beta2: Decay rate for moving average of second moment of gradient.  ## dw^2的指数加权平均衰减率
     - epsilon: Small scalar used for smoothing to avoid dividing by zero.
-    - m: Moving average of gradient.
-    - v: Moving average of squared gradient.
+    - m: Moving average of gradient.   ## dw的移动平均值
+    - v: Moving average of squared gradient.   ## dw^2的移动平均值
     - t: Iteration number.
     """
     if config is None: config = {}
@@ -128,7 +134,7 @@ def adam(x, dx, config=None):
     config.setdefault('epsilon', 1e-8)
     config.setdefault('m', np.zeros_like(x))
     config.setdefault('v', np.zeros_like(x))
-    config.setdefault('t', 1)
+    config.setdefault('t', 1)      ## 但是并没有传入这个参数啊..默认一直为1?
 
     next_x = None
     ###########################################################################
@@ -136,7 +142,12 @@ def adam(x, dx, config=None):
     # the next_x variable. Don't forget to update the m, v, and t variables   #
     # stored in config.                                                       #
     ###########################################################################
-    pass
+    config['m'] = config['beta1']*config['m']+(1-config['beta1'])*dx
+    config['v'] = config['beta2']*config['v']+(1-config['beta2'])*(dx**2)
+    ##偏差修正
+    m_correct = config['m']/(1-config['beta1']**config['t'])
+    v_correct = config['v']/(1-config['beta2']**config['t'])
+    next_x = x - config['learning_rate']*m_correct/(np.sqrt(v_correct)+config['epsilon'])
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

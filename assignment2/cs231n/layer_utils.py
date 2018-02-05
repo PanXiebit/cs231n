@@ -1,7 +1,7 @@
 pass
 from cs231n.layers import *
 from cs231n.fast_layers import *
-
+### 把cs231n.layers 中小的单元整理成了模块
 
 def affine_relu_forward(x, w, b):
     """
