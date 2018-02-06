@@ -190,14 +190,14 @@ class FullyConnectedNet(object):
         # beta2, etc. Scale parameters should be initialized to one and shift      #
         # parameters should be initialized to zero.                                #
         ############################################################################
-        layers_dims = [input_dim] + hidden_dims + [num_classes]
+        layers_dims = [input_dim] + hidden_dims + [num_classes] ## list+list 输入层\隐藏层\输出层的神经元的个数
         
         for i in range(self.num_layers):
-            self.params["W"+'i+1'] = weight_scale * np.random.randn(layer_dims[i],layer_dims[i+1])
-            self.params["b"+'i+1'] = np.zeros(layer_dims[i+1])
-            if self.use_batchnorm and i < num_layers-1 :  ## 最后一层是得到score,没有激活函数,也不需要BN
-                slef.params["gamma"+str(i+1)] = np.ones(1,layer_dims[i+1])  ##???干嘛用的??
-                self.params["beta"+str(i+1)] = np.zeros(1,layer_dims[i+1])
+            self.params['W'+str(i+1)] = weight_scale * np.random.randn(layers_dims[i],layers_dims[i+1])
+            self.params["b"+str(i+1)] = np.zeros(layers_dims[i+1])
+            if self.use_batchnorm and i < self.num_layers-1 :  ## 最后一层是得到score,没有激活函数,也不需要BN
+                self.params["gamma"+str(i+1)] = np.ones((1,layers_dims[i+1]))  ##(1,D)当前隐藏层神经元数目,与归一化的均值和方差一致
+                self.params["beta"+str(i+1)] = np.zeros((1,layers_dims[i+1]))
             
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -215,11 +215,12 @@ class FullyConnectedNet(object):
         # With batch normalization we need to keep track of running means and
         # variances, so we need to pass a special bn_param object to each batch
         # normalization layer. You should pass self.bn_params[0] to the forward pass
-        # of the first batch normalization layer, self.bn_params[1] to the forward
-        # pass of the second batch normalization layer, etc.
+        # of the first batch normalization layer, self.bn_params[1] to the forward  
+        # pass of the second batch normalization layer, etc. 
+        # elf.bn_params是个list,里面的元素是dict,这样就解决了不知道bn参数对应哪一层的问题
         self.bn_params = []
         if self.use_batchnorm:
-            self.bn_params = [{'mode': 'train'} for i in range(self.num_layers - 1)]
+            self.bn_params = [{'mode': 'train'} for i in range(self.num_layers - 1)] 
 
         # Cast all parameters to the correct datatype
         for k, v in self.params.items():
@@ -233,7 +234,7 @@ class FullyConnectedNet(object):
         Input / output: Same as TwoLayerNet above.
         """
         X = X.astype(self.dtype)
-        mode = 'test' if y is None else 'train'
+        mode = 'test' if y is None else 'train'   ## mode ='train' or 'test'
 
         # Set train/test mode for batchnorm params and dropout param since they
         # behave differently during training and testing.
@@ -256,16 +257,24 @@ class FullyConnectedNet(object):
         # self.bn_params[1] to the forward pass for the second batch normalization #
         # layer, etc.                                                              #
         ############################################################################
-        out, cache = {}, {}
+        out, z, z_bn, cache_aff, cache_bn ,cache_relu = {}, {}, {}, {}, {}, {}
         out[0] = X.reshape(X.shape[0],-1)
-        for i in range(len(self.hidden_dims)):
-            w,b = self.params['W'+ str(i)], self.params['b'+ str(i)]
+        for i in range(self.num_layers-1):
+            w,b = self.params['W'+ str(i+1)], self.params['b'+ str(i+1)]
             if self.use_batchnorm:
-                pass
+                gamma, beta = self.params['gamma'+str(i+1)], self.params['beta'+str(i+1)]
+                z[i+1],cache_aff[i] = affine_forward(out[i], w, b)
+                z_bn[i+1],cache_bn[i] = batchnorm_forward(z[i+1], gamma, beta, self.bn_params[i])
+                ## bn_params中的元素是bn_param,一个dict,里面存储的有 mode, eps, momentum, running_mean, running_var
+                ## 其中eps和momentum在batchnorm_forward是定值,mode需要根据外部mode来确定, 
+                ## bn_params[i]中的running值刚开始有初始值,但会对应更新,以便test时使用
+                out[i+1],cache_relu[i] = relu_forward(z_bn[i+1]) 
             else:
-                out[i+1],cache[i] = affine_relu_forward(out[i],w,b)
-        w, b = self.params['W'+str(self.num_layers)], self.params['W'+str(self.num_layers)]
-        scores,cache[self.hidden_dims] = affine_forward(out[self.hidden_dims],w,b)        
+                out[i+1],cache_relu[i] = affine_relu_forward(out[i],w,b)
+            if self.use_dropout:
+                pass
+        w, b = self.params['W'+str(self.num_layers)], self.params['b'+str(self.num_layers)]
+        scores,cache = affine_forward(out[self.num_layers-1],w,b)  ##最后一层全连接层       
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -288,7 +297,26 @@ class FullyConnectedNet(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-        pass
+        
+        loss_data, dscores = softmax_loss(scores, y)
+        loss_reg = 0
+        for i in range(self.num_layers ):
+            loss_reg += np.sum(0.5 * self.reg * self.params["W"+str(i+1)]**2)
+        loss = loss_data + loss_reg
+        
+        dout, drelu, dbn, dgamma, dbeta = {}, {}, {}, {}, {}
+        h = self.num_layers-1
+        dout[h],grads['W'+str(h+1)],grads['b'+str(h+1)] = affine_backward(dscores, cache) 
+        for i in range(h):
+            if self.use_batchnorm:
+                drelu[h-i-1] = relu_backward(dout[h-i], cache_relu[h-i-1])
+                dbn[h-i-1],grads['gamma'+str(h-i)], grads['beta'+str(h-i)] = batchnorm_backward(drelu[h-i-1],cache_bn[h-i-1])
+                dout[h-i-1],grads['W'+str(h-i)], grads['b'+str(h-i)] = affine_backward(dbn[h-i-1],cache_aff[h-i-1])
+            else:
+                dout[h-i-1],grads['W'+str(h-i)], grads['b'+str(h-i)] = affine_relu_backward(dout[h-i],cache_relu[h-i-1])
+        for i in range(self.num_layers):
+            grads['W'+str(i+1)] += self.reg * self.params['W'+str(i+1)]
+        
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

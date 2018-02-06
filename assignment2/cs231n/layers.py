@@ -139,7 +139,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     - x: Data of shape (N, D)
     - gamma: Scale parameter of shape (D,)   
     - beta: Shift paremeter of shape (D,)
-    - bn_param: Dictionary with the following keys:
+    - bn_param: Dictionary with the following keys:   ##bn_param 对应self.bn_params中的一个元素
       - mode: 'train' or 'test'; required     ## 包含训练和测试,两种是不同的情况哦~
       - eps: Constant for numeric stability   ## 保证数值稳定性,分母不为0
       - momentum: Constant for running mean / variance.   ## 均值和方差求移动平均时的\beta
@@ -176,12 +176,12 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # variables.                                                          #
         #######################################################################
         sample_mean = np.mean(x, axis=0)
-        sample_var = np.mean((x - sample_mean), axis=0)
+        sample_var = np.mean((x - sample_mean)**2, axis=0)
+        sample_norm = (x - sample_mean)/(np.sqrt(sample_var + eps))
         running_mean = momentum * running_mean + (1 - momentum) * sample_mean
         running_var = momentum * running_var + (1 - momentum) * sample_var
-        sample_norm = (x - running_mean)/(np.sqrt(running_var) + eps)
-        out = gamma * sample_norm + beta
-        cache = (running_mean, running_var, sample_norm, eps, gamma, beta)
+        out = gamma * sample_norm + beta            ## (D,)*(N,D) 点乘,broadcasting
+        cache = (x, sample_mean, sample_var, sample_norm, eps, gamma, beta)
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -228,12 +228,14 @@ def batchnorm_backward(dout, cache):
     # TODO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     ###########################################################################
-    (running_mean, running_var, sample_norm eps, gamma, beta) = cache
+    (x, sample_mean, sample_var, sample_norm, eps, gamma, beta) = cache
     N = dout.shape[0]
-    dbeta = np.sum(dout, axis=0, keepdims=True) / N
-    dgamma = dout.dot(sample_norm.T)
-    dx = dout * gamma * (1 - 1/N) / np.sqrt(running_var)
-    
+    dx_norm = dout * gamma              #(N,D)
+    dx_mean = np.sum(dx_norm*(-1)/np.sqrt(sample_var + eps), axis=0)   #(D,)
+    dx_var = np.sum(dx_norm*(x-sample_mean)*(-0.5)*(sample_var + eps)**(-1.5), axis=0)   #(D,)
+    dx = dx_norm/np.sqrt(sample_var + eps) + dx_mean/N + dx_var*2*(x-sample_mean)/N   #(N,D)  
+    dgamma = np.sum(dout*sample_norm, axis=0)
+    dbeta = np.sum(dout, axis=0)   ## 为什么不除样本数???? 因为在计算out的时候实际上归一化就是除了样本数了的?
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -263,7 +265,14 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-    pass
+    (x, sample_mean, sample_var, sample_norm, eps, gamma, beta) = cache
+    N = dout.shape[0]
+    dx_norm = dout * gamma              #(N,D)
+    dx_mean = np.sum(dx_norm*(-1)/np.sqrt(sample_var + eps), axis=0)   #(D,)
+    dx_var = np.sum(dx_norm*(x-sample_mean)*(-0.5)*(sample_var + eps)**(-1.5), axis=0)   #(D,)
+    dx = dx_norm/np.sqrt(sample_var + eps) + dx_mean/N + dx_var*2*(x-sample_mean)/N   #(N,D)  
+    dgamma = np.sum(dout*sample_norm, axis=0)
+    dbeta = np.sum(dout, axis=0) 
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -540,7 +549,7 @@ def svm_loss(x, y):
     """
     #求loss   y = max(0,x_j-x_{y_j}+1)   margin = x_j-x_{y_j}+1
     N = x.shape[0]
-    correct_class_scores = x[np.arange(N), y]   ## 这得到的是一个行向量(N,1)
+    correct_class_scores = x[np.arange(N), y]   ## 这得到的是一个行向量(N,)
     margins = np.maximum(0, x - correct_class_scores[:, np.newaxis] + 1.0)   #[:, np.newaxis]将行向量转换为列向量
     margins[np.arange(N), y] = 0   # 真实标签对应的列是1,要转换为0
     loss = np.sum(margins) / N
@@ -576,4 +585,4 @@ def softmax_loss(x, y):
     dx = probs.copy()
     dx[np.arange(N), y] -= 1
     dx /= N
-    return loss, dx
+    return loss, dx   ## dx就是dscores
