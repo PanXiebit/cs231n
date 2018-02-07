@@ -292,7 +292,7 @@ def dropout_forward(x, dropout_param):
         if the mode is test, then just return the input.
       - seed: Seed for the random number generator. Passing seed makes this
         function deterministic, which is needed for gradient checking but not
-        in real networks.
+        in real networks.   ## 便于梯度检查
 
     Outputs:
     - out: Array of the same shape as x.
@@ -311,7 +311,9 @@ def dropout_forward(x, dropout_param):
         # TODO: Implement training phase forward pass for inverted dropout.   #
         # Store the dropout mask in the mask variable.                        #
         #######################################################################
-        pass
+        
+        mask = np.random.rand(*x.shape) < p # p到底是存活的概率还是失活的概率?
+        out = x * mask / p
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -319,7 +321,7 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # TODO: Implement the test phase forward pass for inverted dropout.   #
         #######################################################################
-        pass
+        out = x
         #######################################################################
         #                            END OF YOUR CODE                         #
         #######################################################################
@@ -346,7 +348,7 @@ def dropout_backward(dout, cache):
         #######################################################################
         # TODO: Implement training phase backward pass for inverted dropout   #
         #######################################################################
-        pass
+        dx = dout * mask / dropout_param['p'] 
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################

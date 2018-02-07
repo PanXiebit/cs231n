@@ -66,7 +66,7 @@ def sgd_momentum(w, dw, config=None):
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
     ## Nesterov Accelerated gradient
-    v = config['momentum'] * v - config['learning']*dw
+    v = config['momentum'] * v - config['learning_rate']*dw
     next_w =  w + v
     ## Ng 讲解的似乎不太一样
     # v = config['momentum'] * v -(1 - config['momentum'])*dw

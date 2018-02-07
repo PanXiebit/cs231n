@@ -257,7 +257,7 @@ class FullyConnectedNet(object):
         # self.bn_params[1] to the forward pass for the second batch normalization #
         # layer, etc.                                                              #
         ############################################################################
-        out, z, z_bn, cache_aff, cache_bn ,cache_relu = {}, {}, {}, {}, {}, {}
+        out, z, z_bn, cache_aff, cache_bn ,cache_relu, cache_drop = {}, {}, {}, {}, {}, {}, {}
         out[0] = X.reshape(X.shape[0],-1)
         for i in range(self.num_layers-1):
             w,b = self.params['W'+ str(i+1)], self.params['b'+ str(i+1)]
@@ -269,10 +269,13 @@ class FullyConnectedNet(object):
                 ## 其中eps和momentum在batchnorm_forward是定值,mode需要根据外部mode来确定, 
                 ## bn_params[i]中的running值刚开始有初始值,但会对应更新,以便test时使用
                 out[i+1],cache_relu[i] = relu_forward(z_bn[i+1]) 
+                if self.use_dropout:
+                    out[i+1], cache_drop[i] = dropout_forward(out[i+1],self.dropout_param)                    
             else:
                 out[i+1],cache_relu[i] = affine_relu_forward(out[i],w,b)
-            if self.use_dropout:
-                pass
+                if self.use_dropout:
+                    out[i+1], cache_drop[i] = dropout_forward(out[i+1],self.dropout_param)
+            
         w, b = self.params['W'+str(self.num_layers)], self.params['b'+str(self.num_layers)]
         scores,cache = affine_forward(out[self.num_layers-1],w,b)  ##最后一层全连接层       
         ############################################################################
@@ -304,15 +307,21 @@ class FullyConnectedNet(object):
             loss_reg += np.sum(0.5 * self.reg * self.params["W"+str(i+1)]**2)
         loss = loss_data + loss_reg
         
-        dout, drelu, dbn, dgamma, dbeta = {}, {}, {}, {}, {}
+        dout, ddrop, drelu, dbn, dgamma, dbeta = {}, {}, {}, {}, {}, {}
         h = self.num_layers-1
         dout[h],grads['W'+str(h+1)],grads['b'+str(h+1)] = affine_backward(dscores, cache) 
         for i in range(h):
             if self.use_batchnorm:
+                if self.use_dropout:
+                    ddrop[h-i-1] = dropout_backward(dout[h-i], cache_drop[h-i-1])
+                    dout[h-i] = ddrop[h-i-1]
                 drelu[h-i-1] = relu_backward(dout[h-i], cache_relu[h-i-1])
                 dbn[h-i-1],grads['gamma'+str(h-i)], grads['beta'+str(h-i)] = batchnorm_backward(drelu[h-i-1],cache_bn[h-i-1])
                 dout[h-i-1],grads['W'+str(h-i)], grads['b'+str(h-i)] = affine_backward(dbn[h-i-1],cache_aff[h-i-1])
             else:
+                if self.use_dropout:
+                    ddrop[h-i-1] = dropout_backward(dout[h-i], cache_drop[h-i-1])
+                    dout[h-i] = ddrop[h-i-1]
                 dout[h-i-1],grads['W'+str(h-i)], grads['b'+str(h-i)] = affine_relu_backward(dout[h-i],cache_relu[h-i-1])
         for i in range(self.num_layers):
             grads['W'+str(i+1)] += self.reg * self.params['W'+str(i+1)]

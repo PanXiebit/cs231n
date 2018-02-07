@@ -272,7 +272,7 @@ class Solver(object):
 
             # At the end of every epoch, increment the epoch counter and decay
             # the learning rate.
-            epoch_end = (t + 1) % iterations_per_epoch == 0   ## 迭代122次整数倍,也就是epoch的整数倍才更新学习率
+            epoch_end = (t + 1) % iterations_per_epoch == 0   ## epoch的整数倍才更新学习率
             if epoch_end:
                 self.epoch += 1
                 for k in self.optim_configs:
