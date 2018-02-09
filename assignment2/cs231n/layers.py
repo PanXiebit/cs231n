@@ -367,7 +367,7 @@ def conv_forward_naive(x, w, b, conv_param):
 
     Input:
     - x: Input data of shape (N, C, H, W)
-    - w: Filter weights of shape (F, C, HH, WW)
+    - w: Filter weights of shape (F, C, HH, WW)  ## F表示滤波器的个数
     - b: Biases, of shape (F,)
     - conv_param: A dictionary with the following keys:
       - 'stride': The number of pixels between adjacent receptive fields in the
@@ -382,10 +382,20 @@ def conv_forward_naive(x, w, b, conv_param):
     """
     out = None
     ###########################################################################
-    # TODO: Implement the convolutional forward pass.                         #
-    # Hint: you can use the function np.pad for padding.                      #
+    # TODO: Implement the convolutional forward pass.     #
+    # Hint: you can use the function np.pad for padding.   #
     ###########################################################################
-    pass
+    if conv_param['pad']:
+        x = np.pad(x,((0,0),(0,0),(num_pad,num_pad),(num_pad,num_pad)),'constant',constant_value=0)
+    HH, WW = w.shape[2], w.shape[3]
+    for i in range(x.shape[0]):
+        for j in range(w.shape[0]):
+            for k in range(x.shape[2]):
+                for m in range(x.shape[3]):
+                    out[k,m,j] = x[k:k+HH,m:m+WW,:]*w[:,:,j]
+                    k += conv_param['stride']
+                    m += conv_param['stride']
+        
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
