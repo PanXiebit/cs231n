@@ -21,7 +21,7 @@ def conv_forward_im2col(x, w, b, conv_param):
     stride, pad = conv_param['stride'], conv_param['pad']
 
     # Check dimensions
-    assert (W + 2 * pad - filter_width) % stride == 0, 'width does not work'
+    assert (W + 2 * pad - filter_width) % stride == 0, 'width does not work'   ## 干啥??
     assert (H + 2 * pad - filter_height) % stride == 0, 'height does not work'
 
     # Create output
@@ -30,8 +30,10 @@ def conv_forward_im2col(x, w, b, conv_param):
     out = np.zeros((N, num_filters, out_height, out_width), dtype=x.dtype)
 
     # x_cols = im2col_indices(x, w.shape[2], w.shape[3], pad, stride)
-    x_cols = im2col_cython(x, w.shape[2], w.shape[3], pad, stride)
+    x_cols = im2col_cython(x, w.shape[2], w.shape[3], pad, stride)      ## 将卷积层转换成全连接层进行计算.
+    
     res = w.reshape((w.shape[0], -1)).dot(x_cols) + b.reshape(-1, 1)
+    ## (F, C*filter_height*filter_width)   则 x_cols.shape=(C*filter_height*filter_width, ...)
 
     out = res.reshape(w.shape[0], out.shape[2], out.shape[3], x.shape[0])
     out = out.transpose(3, 0, 1, 2)
@@ -59,7 +61,7 @@ def conv_forward_strides(x, w, b, conv_param):
     out_h = (H - HH) // stride + 1
     out_w = (W - WW) // stride + 1
 
-    # Perform an im2col operation by picking clever strides
+    # Perform an im2col operation by picking clever strides 
     shape = (C, HH, WW, N, out_h, out_w)
     strides = (H * W, W, 1, C * H * W, stride * W, stride)
     strides = x.itemsize * np.array(strides)

@@ -42,7 +42,7 @@ def eval_numerical_gradient_array(f, x, df, h=1e-5):
     array and returns a numpy array.
     """
     grad = np.zeros_like(x)
-    it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
+    it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])   ##迭代器 iterators
     while not it.finished:
         ix = it.multi_index
 
