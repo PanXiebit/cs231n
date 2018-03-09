@@ -333,8 +333,8 @@ def word_embedding_forward(x, W):
 
     Inputs:
     - x: Integer array of shape (N, T) giving indices of words. Each element idx
-      of x muxt be in the range 0 <= idx < V.
-    - W: Weight matrix of shape (V, D) giving word vectors for all words.
+      of x must be in the range 0 <= idx < V.
+    - W: Weight matrix of shape (V, D) giving word vectors for all words.　### 预训练好的词向量
 
     Returns a tuple of:
     - out: Array of shape (N, T, D) giving word vectors for all input words.
@@ -346,7 +346,8 @@ def word_embedding_forward(x, W):
     #                                                                            #
     # HINT: This can be done in one line using NumPy's array indexing.           #
     ##############################################################################
-    pass
+    out = W[x,:] ##numpy的广播机制，将x的每一个元素带进去，然后取对应的词向量
+    cache = (x, W)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -375,7 +376,10 @@ def word_embedding_backward(dout, cache):
     # Note that Words can appear more than once in a sequence.                   #
     # HINT: Look up the function np.add.at                                       #
     ##############################################################################
-    pass
+    x, W = cache    # x.shape=(N, T)
+    dW=np.zeros_like(W) # W.shape=(V, D)
+    # 在x指定的位置将dout加到dW上
+    np.add.at(dW, x, dout) # dout.shape(N, T, D)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -532,7 +536,7 @@ def temporal_affine_forward(x, w, b):
     dimension M.
 
     Inputs:
-    - x: Input data of shape (N, T, D)
+    - x: Input data of shape (N, T, D)  ##　时间t时刻对应的minibatch个词向量(N, T, D)
     - w: Weights of shape (D, M)
     - b: Biases of shape (M,)
 

@@ -92,9 +92,9 @@ class CaptioningSolver(object):
         self.model = model
         self.data = data
 
-        # Unpack keyword arguments
-        self.update_rule = kwargs.pop('update_rule', 'sgd')
-        self.optim_config = kwargs.pop('optim_config', {})
+        # Unpack keyword arguments                            ### take a note!!!!
+        self.update_rule = kwargs.pop('update_rule', 'sgd')   ### kwargs是一个参数字典，当里面没有'update_rule'时，返回'sgd'
+        self.optim_config = kwargs.pop('optim_config', {})    ###　如果给出了'update_rule'
         self.lr_decay = kwargs.pop('lr_decay', 1.0)
         self.batch_size = kwargs.pop('batch_size', 100)
         self.num_epochs = kwargs.pop('num_epochs', 10)
@@ -119,7 +119,7 @@ class CaptioningSolver(object):
     def _reset(self):
         """
         Set up some book-keeping variables for optimization. Don't call this
-        manually.
+        manually.   ### 需要进行优化的变量，不要手动调用
         """
         # Set up some variables for book-keeping
         self.epoch = 0
@@ -136,7 +136,7 @@ class CaptioningSolver(object):
             self.optim_configs[p] = d
 
 
-    def _step(self):
+    def _step(self):   ### 被调用一次就执行一步梯度下降，在train()中倍调用，不要手动调用
         """
         Make a single gradient update. This is called by train() and should not
         be called manually.
@@ -155,7 +155,7 @@ class CaptioningSolver(object):
         for p, w in self.model.params.items():
             dw = grads[p]
             config = self.optim_configs[p]
-            next_w, next_config = self.update_rule(w, dw, config)
+            next_w, next_config = self.update_rule(w, dw, config)  ###　梯度下降，在optim.py里面
             self.model.params[p] = next_w
             self.optim_configs[p] = next_config
 
@@ -212,7 +212,7 @@ class CaptioningSolver(object):
         num_iterations = self.num_epochs * iterations_per_epoch
 
         for t in range(num_iterations):
-            self._step()
+            self._step()### 每一个batch更新一次梯度
 
             # Maybe print training loss
             if self.verbose and t % self.print_every == 0:
@@ -225,7 +225,7 @@ class CaptioningSolver(object):
             if epoch_end:
                 self.epoch += 1
                 for k in self.optim_configs:
-                    self.optim_configs[k]['learning_rate'] *= self.lr_decay
+                    self.optim_configs[k]['learning_rate'] *= self.lr_decay ###　每一个epoch更新一次学习率
 
             # Check train and val accuracy on the first iteration, the last
             # iteration, and at the end of each epoch.
