@@ -394,7 +394,7 @@ def sigmoid(x):
     neg_mask = (x < 0)
     z = np.zeros_like(x)
     z[pos_mask] = np.exp(-x[pos_mask])
-    z[neg_mask] = np.exp(x[neg_mask])
+    z[neg_mask] = np.exp(x[neg_mask])  ###　大于０的加符号，小于０的不加。。为啥？
     top = np.ones_like(x)
     top[neg_mask] = z[neg_mask]
     return top / (1 + z)
@@ -425,13 +425,27 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     # TODO: Implement the forward pass for a single timestep of an LSTM.        #
     # You may want to use the numerically stable sigmoid implementation above.  #
     #############################################################################
-    pass
+    N, H = prev_h.shape
+    a = x.dot(Wx) + prev_h.dot(Wh) + b  # (N, 4H)
+    
+    # compute gate
+    ai = a[:, :H]
+    af = a[:, H:2*H]
+    ao = a[:, 2*H:3*H]
+    ag = a[:, 3*H:]
+    gate_i = sigmoid(ai)        # update gate
+    gate_f = sigmoid(af)        # forget gate
+    gate_o = sigmoid(ao)        # output gate
+    gate_g = np.tanh(ag)        # c_tilde
+    
+    next_c = gate_i * gate_g + gate_f * prev_c   # new cell state (N, H)
+    next_h = gate_o * np.tanh(next_c)
+    cache = (x, prev_h, prev_c, Wx, Wh, b, next_c, ai, af, ao, ag, gate_i, gate_f, gate_o, gate_g)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
 
     return next_h, next_c, cache
-
 
 def lstm_step_backward(dnext_h, dnext_c, cache):
     """
@@ -457,6 +471,32 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     # HINT: For sigmoid and tanh you can compute local derivatives in terms of  #
     # the output value from the nonlinearity.                                   #
     #############################################################################
+    N, H = dnext_h.shape
+    # unroll cache
+    x, prev_h, prev_c, Wx, Wh, b, next_c, ai, af, ao, ag, gate_i, gate_f, gate_o, gate_g = cache
+    
+    dgate_o = dnext_h * np.tanh(next_c)
+    # 状态c的梯度要累加!!!!!!
+    dnext_c += dnext_h * gate_o * (1 - np.tanh(next_c)**2)
+    
+    dgate_i = dnext_c * gate_g
+    dgate_f = dnext_c * prev_c
+    dgate_g = dnext_c * gate_i
+    dprev_c = dnext_c * gate_f    # dprev_c  (N, H)
+       
+    dai = gate_i * (1 - gate_i) * dgate_i
+    daf = gate_f * (1 - gate_f) * dgate_f
+    dao = gate_o * (1 - gate_o) * dgate_o
+    dag = (1 - gate_g**2) * dgate_g
+    
+    da = np.hstack((dai, daf, dao, dag)) # (N ,4H)
+    assert(da.shape == (N, 4*H))
+    
+    dx = da.dot(Wx.T)         # dx (N, D)
+    dWx = x.T.dot(da)         # dWx  (D, 4H)
+    dprev_h = da.dot(Wh.T)    # dprev_h  (N, H)
+    dWh = prev_h.T.dot(da)    # dWh (H, 4H)    
+    db = np.sum(da, axis=0)   # db (1, 4H)
     pass
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -492,7 +532,18 @@ def lstm_forward(x, h0, Wx, Wh, b):
     # TODO: Implement the forward pass for an LSTM over an entire timeseries.   #
     # You should use the lstm_step_forward function that you just defined.      #
     #############################################################################
-    pass
+    N, T, D = x.shape
+    N, H = h0.shape
+    h = np.zeros((N, T, H))
+    c = np.zeros((N, T, H))
+    cache = []
+    next_h = h0
+    next_c = np.zeros((N ,H))
+    for t in range(T):
+        next_h, next_c, cache_t = lstm_step_forward(x[:,t,:], next_h, next_c, Wx, Wh, b) # 权重参数共享
+        h[:, t, :] = next_h
+        c[:, t, :] = next_c
+        cache.append(cache_t)    
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -505,7 +556,7 @@ def lstm_backward(dh, cache):
     Backward pass for an LSTM over an entire sequence of data.]
 
     Inputs:
-    - dh: Upstream gradients of hidden states, of shape (N, T, H)
+    - dh: Upstream gradients of hidden states, of shape (N, T, H)  ###　损失函数得到的梯度
     - cache: Values from the forward pass
 
     Returns a tuple of:
@@ -520,7 +571,35 @@ def lstm_backward(dh, cache):
     # TODO: Implement the backward pass for an LSTM over an entire timeseries.  #
     # You should use the lstm_step_backward function that you just defined.     #
     #############################################################################
-    pass
+    
+    x, prev_h, prev_c, Wx, Wh, b, next_c, ai, af, ao, ag, gate_i, gate_f, gate_o, gate_g = cache[0]
+    N, T, H = dh.shape
+    N, D = x.shape
+    
+    # initilizate
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, 4*H))
+    dWh = np.zeros((H, 4*H))
+    db = np.zeros((4*H,))
+    
+    # 隐藏层迭代的
+    dnext_h = np.zeros((N, H))
+    dnext_c = np.zeros_like(dnext_h)
+    
+    for k in range(T):
+        t = T-1-k
+        # 隐藏层h的梯度不仅来源于损失函数计算得到的dh[:,t,:]，而且有上一层回流的梯度dnext_h
+        # 记忆细胞也是这样，但在step backward中已经考虑到了两种回流
+        dnext_h += dh[:,t,:]
+        dx_t, dnext_h, dnext_c, dWx_t, dWh_t, db_t = lstm_step_backward(dnext_h, dnext_c, cache[t])
+        dx[:,t,:] = dx_t
+        # 参数是共享的
+        dWx += dWx_t
+        dWh += dWh_t
+        db += db_t
+        
+    dh0 = dnext_h
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################

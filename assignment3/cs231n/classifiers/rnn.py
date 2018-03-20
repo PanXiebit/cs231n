@@ -98,8 +98,8 @@ class CaptioningRNN(object):
         # token, and the first element of captions_out will be the first word.
         ## 这里将captions分成了两个部分，captions_in是除了最后一个词外的所有词，是输入到RNN/LSTM的输入；
         ## captions_out是除了第一个词外的所有词，是RNN/LSTM期望得到的输出。
-        captions_in = captions[:, :-1]  # (N, T-1)
-        captions_out = captions[:, 1:]
+        captions_in = captions[:, :-1]  # (N, T)
+        captions_out = captions[:, 1:]  # 真实值
 
         # You'll need this
         mask = (captions_out != self._null)
@@ -264,21 +264,19 @@ class CaptioningRNN(object):
         captions[:,0] = self._start 
         
         prev_h = h0 # Previous hidden state
-        prev_c = np.zeros(h0.shape)
+        prev_c = np.zeros(h0.shape)  # lstm: memory cell state
         # Current word (start word)
-        x = self._start * np.ones((N, 1), dtype=np.int32)  # (N,1)
+        x = self._start * np.ones((N, 1), dtype=np.int32)  # (N,1) 测试：sample时输入
         
         for t in range(max_length):
             embed_out, _ = word_embedding_forward(x, W_embed)  # (N ,1, W) embedded word vector
             assert(embed_out.shape == (N,1,W))
             if self.cell_type == 'rnn':
-                # Run a step of rnn   ## Remove single-dimensional entries from the shape of an array.
-                hidden_out, _ = rnn_step_forward(np.squeeze(embed_out), prev_h, Wx, Wh, b)   ## (N,H)
-                
+                # Run a step of rnn   # Remove single-dimensional entries from the shape of an array.
+                hidden_out, _ = rnn_step_forward(np.squeeze(embed_out), prev_h, Wx, Wh, b)   ## (N,H)                
             elif self.cell_type == 'lstm':
-                pass
                 # Run a step of lstm
-                #hidden_out, c, _ = lstm_step_forward(np.squeeze(word_embed), prev_h, prev_c, Wx, Wh, b)
+                hidden_out, _, _ = lstm_step_forward(np.squeeze(embed_out), prev_h, prev_c, Wx, Wh, b)
             else:
                 raise ValueError('%s not implemented' % (self.cell_type))
         

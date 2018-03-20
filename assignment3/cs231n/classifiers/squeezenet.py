@@ -7,7 +7,7 @@ def fire_module(x,inp,sp,e11p,e33p):
         with tf.variable_scope("squeeze"):
             W = tf.get_variable("weights",shape=[1,1,inp,sp])
             b = tf.get_variable("bias",shape=[sp])
-            s = tf.nn.conv2d(x,W,[1,1,1,1],"VALID")+b
+            s = tf.nn.conv2d(x,W,[1,1,1,1],"VALID")+b #strides表示卷积核在每一位移动的步长，第一维和第四维只能为１
             s = tf.nn.relu(s)
         with tf.variable_scope("e11"):
             W = tf.get_variable("weights",shape=[1,1,sp,e11p])
@@ -102,9 +102,10 @@ class SqueezeNet(object):
             with tf.variable_scope('layer3'):
                 x = tf.nn.avg_pool(x,[1,13,13,1],strides=[1,13,13,1],padding='VALID')
                 self.layers.append(x)
-        self.classifier = tf.reshape(x,[-1, NUM_CLASSES])
+        self.classifier = tf.reshape(x,[-1, NUM_CLASSES])   ### ３为向量拉伸为１维，以便于计算socres
 
         if save_path is not None:
             saver = tf.train.Saver()
             saver.restore(sess, save_path)
-        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=tf.one_hot(self.labels, NUM_CLASSES), logits=self.classifier))
+        #self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=tf.one_hot(self.labels, NUM_CLASSES), logits=self.classifier))
+        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.one_hot(self.labels, NUM_CLASSES), logits=self.classifier))
